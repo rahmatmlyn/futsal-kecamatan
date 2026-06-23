@@ -194,7 +194,7 @@ function LoginScreen({ onLogin, onBack }) {
 }
 
 // ─── HALAMAN UTAMA ───────────────────────────────────────────────
-function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave }) {
+function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick, onLogout }) {
   const [cat, setCat] = useState("U16");
   const [tab, setTab] = useState("standings");
   const [saved, setSaved] = useState(false);
@@ -233,22 +233,25 @@ function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
       {/* Header */}
-      <div style={{ background:`linear-gradient(135deg,#5b21b6,${KEC_COLOR})`, borderRadius:12, padding:"16px 20px", color:"#fff", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:10 }}>
+      <div style={{ background:`linear-gradient(135deg,#5b21b6,${KEC_COLOR})`, borderRadius:16, padding:"20px 24px", color:"#fff", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
         <div>
-          <div style={{ fontWeight:800, fontSize:16 }}>🏙️ Futsal Kecamatan Pasar Rebo</div>
-          <div style={{ fontSize:12, opacity:0.85, marginTop:4 }}>5 Kelurahan · Round-Robin · 20 menit/pertandingan</div>
+          <h1 style={{ margin:0, fontSize:22, fontWeight:700 }}>Turnamen Futsal Kecamatan Pasar Rebo 2026</h1>
+          <p style={{ margin:"4px 0 0", opacity:0.8, fontSize:13 }}>5 Kelurahan · Round-Robin · Live Standings</p>
+          <p style={{ margin:"4px 0 0", opacity:0.8, fontSize:13 }}>Created by Rahmat Mulyana Karang Taruna Kelurahan Kalisari</p>
         </div>
-        {isAdmin && (
-          <button onClick={handleSave}
-            style={{ background:saved?"#10b98122":"#ffffff22", border:`1px solid ${saved?"#10b98166":"#ffffff44"}`, color:saved?"#6ee7b7":"#fff", borderRadius:10, padding:"8px 16px", cursor:"pointer", fontSize:12, fontWeight:700 }}>
-            {saved?"✅ Tersimpan!":"💾 Simpan"}
-          </button>
-        )}
+        {isAdmin
+          ? <button onClick={onLogout} style={{ background:"#ffffff22", border:"1px solid #ffffff44", color:"#fff", borderRadius:10, padding:"8px 14px", cursor:"pointer", fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>🚪 Keluar</button>
+          : <button onClick={onAdminClick} style={{ background:"#ffffff22", border:"1px solid #ffffff44", color:"#fff", borderRadius:10, padding:"8px 14px", cursor:"pointer", fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>🔐 Admin</button>
+        }
       </div>
 
       {isAdmin && (
-        <div style={{ background:"#fef3c7", border:"1px solid #fcd34d", borderRadius:10, padding:"10px 16px", fontSize:12, color:"#92400e" }}>
-          🔐 <b>Mode Admin Aktif</b> — Edit skor, tanggal, waktu, dan WO. Klik Simpan setelah selesai.
+        <div style={{ background:"#fef3c7", border:"1px solid #fcd34d", borderRadius:10, padding:"10px 16px", fontSize:12, color:"#92400e", display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          <span>🔐 <b>Mode Admin Aktif</b> — Edit skor, tanggal, waktu, dan WO.</span>
+          <button onClick={handleSave}
+            style={{ background:saved?"#10b981":KEC_COLOR, border:"none", color:"#fff", borderRadius:8, padding:"7px 16px", cursor:"pointer", fontSize:12, fontWeight:700, whiteSpace:"nowrap" }}>
+            {saved?"✅ Tersimpan!":"💾 Simpan"}
+          </button>
         </div>
       )}
 
@@ -474,34 +477,15 @@ export default function App() {
   const isAdmin = mode === "admin";
 
   return (
-    <div style={{ fontFamily:"Inter,sans-serif", background:"#f8fafc", minHeight:"100vh" }}>
-      <nav style={{ background:"#1e293b", position:"sticky", top:0, zIndex:100, boxShadow:"0 2px 8px #0003" }}>
-        <div style={{ maxWidth:900, margin:"0 auto", padding:"0 16px", display:"flex", alignItems:"center", height:52 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
-            <span style={{ fontSize:20 }}>🏙️</span>
-            <span style={{ color:"#fff", fontWeight:800, fontSize:13, lineHeight:1.3 }}>
-              Futsal Kecamatan <span style={{ fontWeight:400, fontSize:11, opacity:0.65 }}>Pasar Rebo 2026</span>
-            </span>
-          </div>
-          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-            {isAdmin && (
-              <span style={{ fontSize:10, background:"#f59e0b33", color:"#fbbf24", border:"1px solid #f59e0b44", borderRadius:5, padding:"2px 7px", fontWeight:700 }}>
-                ADMIN
-              </span>
-            )}
-            {isAdmin
-              ? <button onClick={()=>setMode("public")} style={{ background:"#ef444422", border:"1px solid #ef444444", color:"#fca5a5", borderRadius:7, padding:"5px 10px", cursor:"pointer", fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>🚪 Keluar</button>
-              : <button onClick={()=>setMode("login")} style={{ background:"#ffffff11", border:"1px solid #ffffff22", color:"#94a3b8", borderRadius:7, padding:"5px 10px", cursor:"pointer", fontSize:12, fontWeight:600, whiteSpace:"nowrap" }}>🔐 Admin</button>
-            }
-          </div>
-        </div>
-      </nav>
-      <div style={{ maxWidth:900, margin:"0 auto", padding:16 }}>
+    <div style={{ fontFamily:"Inter,sans-serif", background:"#f8fafc", minHeight:"100vh", padding:16 }}>
+      <div style={{ maxWidth:900, margin:"0 auto" }}>
         <KecamatanPage
           kecamatan={kecamatan}
           setKecamatan={setKecamatan}
           isAdmin={isAdmin}
           onSave={handleSave}
+          onAdminClick={()=>setMode("login")}
+          onLogout={()=>setMode("public")}
         />
       </div>
     </div>
