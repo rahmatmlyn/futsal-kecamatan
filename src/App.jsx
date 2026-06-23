@@ -637,6 +637,19 @@ function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick,
       [cat]: { ...prev[cat], final: { ...val, home:finalist1||"", away:finalist2||"" } }
     }));
 
+  const updRoster = updater =>
+    setKecamatan(prev => {
+      const cur = prev[cat].roster || {};
+      const next = typeof updater === "function" ? updater(cur) : updater;
+      return { ...prev, [cat]: { ...prev[cat], roster: next } };
+    });
+
+  const shuffleSchedule = () => {
+    if (!window.confirm(`Acak ulang jadwal ${cat}? Semua skor & pencetak gol kategori ${cat} akan direset.`)) return;
+    const rot = Math.floor((new Date().getTime() / 1000) % (teams.length - 1)) + 1;
+    setKecamatan(prev => ({ ...prev, [cat]: { ...prev[cat], matches: generateKecMatches(teams, cat, rot) } }));
+  };
+
   const matchResult = m => {
     if (m.wo==="home_wo") return { score:"3 - 0", wo:true };
     if (m.wo==="away_wo") return { score:"0 - 3", wo:true };
@@ -681,7 +694,7 @@ function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick,
 
       {/* Sub-tabs */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-        {[["standings","📊 Klasemen"],["schedule","📋 Jadwal & Hasil"],["final","🏆 Final"]].map(([k,v])=>(
+        {[["standings","📊 Klasemen"],["schedule","📋 Jadwal & Hasil"],["topscorer","⚽ Top Skor"],["final","🏆 Final"],["roster","👥 Tim & Pemain"]].map(([k,v])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={{ padding:"7px 16px", borderRadius:8, border:"none", cursor:"pointer", fontWeight:600, fontSize:13, background:tab===k?KEC_COLOR:"#f1f5f9", color:tab===k?"#fff":"#64748b", boxShadow:tab===k?`0 2px 6px ${KEC_COLOR}44`:"none" }}>
             {v}
@@ -736,6 +749,12 @@ function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick,
       {/* ── Jadwal & Hasil ── */}
       {tab==="schedule" && (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {isAdmin && (
+            <button onClick={shuffleSchedule}
+              style={{ alignSelf:"flex-start", background:"#fff", border:`1px solid ${KEC_COLOR}`, color:KEC_COLOR, borderRadius:8, padding:"7px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              🔀 Acak Ulang Jadwal {cat}
+            </button>
+          )}
           {catData.matches.map(m => {
             const res = matchResult(m);
             const winner = res&&!res.wo&&m.homeScore!==""
@@ -841,6 +860,16 @@ function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick,
             </div>
           )}
         </div>
+      )}
+
+      {tab==="topscorer" && (
+        <TopScorers matches={catData.matches} final={catData.final} />
+      )}
+
+      {tab==="roster" && (
+        isAdmin
+          ? <RosterAdmin teams={teams} roster={catData.roster||{}} setRoster={updRoster} cat={cat} />
+          : <RosterView teams={teams} roster={catData.roster||{}} />
       )}
 
       <div style={{ marginTop:8, padding:"16px 0 8px", textAlign:"center" }}>
