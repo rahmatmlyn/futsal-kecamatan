@@ -159,6 +159,22 @@ function getKnockoutWinner(home, away, match) {
   return null;
 }
 
+function calcTopScorers(matches, final) {
+  const map = {};
+  const process = (m) => {
+    (m.scorers || []).forEach(s => {
+      const teamName = s.side === "home" ? m.home : m.away;
+      if (!teamName) return;
+      const key = `${s.name}||${teamName}`;
+      if (!map[key]) map[key] = { name: s.name, team: teamName, goals: 0 };
+      map[key].goals += parseInt(s.goals) || 0;
+    });
+  };
+  matches.forEach(process);
+  if (final) process(final);
+  return Object.values(map).filter(s => s.goals > 0).sort((a, b) => b.goals - a.goals);
+}
+
 // ─── MATCH CARD ──────────────────────────────────────────────────
 function MatchCard({ label, home, away, match, isAdmin, onUpdate }) {
   const ph = "Belum ditentukan";
@@ -205,6 +221,45 @@ function MatchCard({ label, home, away, match, isAdmin, onUpdate }) {
         </div>
       )}
       {wo!=="none"&&<div style={{ padding:"3px 14px 6px", background:"#f5f3ff", fontSize:11, color:"#7c3aed", fontWeight:700, textAlign:"center" }}>WO</div>}
+    </div>
+  );
+}
+
+// ─── TOP SKOR ────────────────────────────────────────────────────
+function TopScorers({ matches, final }) {
+  const scorers = calcTopScorers(matches, final);
+  return (
+    <div style={{ background:"#fff", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px #0001" }}>
+      <div style={{ background:"linear-gradient(135deg,#f59e0b,#d97706)", color:"#fff", padding:"12px 20px", fontWeight:700, fontSize:14 }}>
+        ⚽ Pencetak Gol Terbanyak
+      </div>
+      {scorers.length === 0 ? (
+        <div style={{ padding:32, textAlign:"center", color:"#94a3b8", fontSize:13 }}>Belum ada data pencetak gol</div>
+      ) : (
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+            <thead>
+              <tr style={{ background:"#f8fafc" }}>
+                {["#","Pemain","Tim","⚽ Gol"].map((h,i)=>(
+                  <th key={i} style={{ padding:"8px 10px", color:"#64748b", textAlign:i<3?"left":"center", fontWeight:600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {scorers.map((s,i)=>(
+                <tr key={`${s.name}-${s.team}`} style={{ borderBottom:"1px solid #f1f5f9", background:i===0?"#fffbeb":i===1?"#f8fafc":i===2?"#fff7ed":"#fff" }}>
+                  <td style={{ padding:"10px 10px", fontWeight:700, fontSize:15, color:i===0?"#d97706":i===1?"#64748b":i===2?"#92400e":"#94a3b8" }}>
+                    {i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}
+                  </td>
+                  <td style={{ padding:"10px 10px", fontWeight:600, color:"#1e293b" }}>{s.name}</td>
+                  <td style={{ padding:"10px 10px", color:"#64748b", fontSize:12 }}>{s.team}</td>
+                  <td style={{ padding:"10px 10px", textAlign:"center", fontWeight:800, color:"#f59e0b", fontSize:18 }}>{s.goals}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
