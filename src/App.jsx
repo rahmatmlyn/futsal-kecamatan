@@ -176,7 +176,9 @@ function calcTopScorers(matches, final) {
 }
 
 // ─── MATCH CARD ──────────────────────────────────────────────────
-function MatchCard({ label, home, away, match, isAdmin, onUpdate }) {
+function MatchCard({ label, home, away, match, isAdmin, onUpdate, roster }) {
+  const [showScorer, setShowScorer] = useState(false);
+  const [newScorer, setNewScorer] = useState({ name:"", side:"home", goals:1 });
   const ph = "Belum ditentukan";
   const wo = match.wo;
   const scored = wo === "none" ? (match.homeScore !== "" && match.awayScore !== "") : true;
@@ -205,6 +207,14 @@ function MatchCard({ label, home, away, match, isAdmin, onUpdate }) {
     </div>
   );
 
+  const addScorer = () => {
+    if (!newScorer.name.trim()) return;
+    onUpdate({ ...match, scorers: [...(match.scorers||[]), { name: newScorer.name.trim(), side: newScorer.side, goals: parseInt(newScorer.goals)||1 }] });
+    setNewScorer({ name:"", side:"home", goals:1 });
+  };
+  const removeScorer = (idx) => onUpdate({ ...match, scorers: (match.scorers||[]).filter((_,i)=>i!==idx) });
+  const totalGoals = (match.scorers||[]).reduce((s,c)=>s+(parseInt(c.goals)||0),0);
+
   return (
     <div style={{ background:"#fff", borderRadius:12, overflow:"hidden", boxShadow:"0 2px 10px #0002" }}>
       <div style={{ background:"#5b21b6", color:"#fff", padding:"7px 14px", fontSize:11, fontWeight:700, textAlign:"center", letterSpacing:1 }}>{label}</div>
@@ -221,6 +231,54 @@ function MatchCard({ label, home, away, match, isAdmin, onUpdate }) {
         </div>
       )}
       {wo!=="none"&&<div style={{ padding:"3px 14px 6px", background:"#f5f3ff", fontSize:11, color:"#7c3aed", fontWeight:700, textAlign:"center" }}>WO</div>}
+      {isAdmin && home && away && (
+        <div style={{ borderTop:"1px solid #f1f5f9" }}>
+          <button onClick={()=>setShowScorer(!showScorer)}
+            style={{ width:"100%", background: showScorer?"#fffbeb":"#f8fafc", border:"none", padding:"6px 14px", fontSize:11, fontWeight:700, color: totalGoals>0?"#d97706":"#94a3b8", cursor:"pointer", textAlign:"left" }}>
+            {totalGoals>0 ? `⚽ ${totalGoals} Gol — ${showScorer?"Tutup":"Lihat/Edit"}` : "⚽ Tambah Pencetak Gol"}
+          </button>
+          {showScorer && (
+            <div style={{ padding:"10px 14px 12px", background:"#fffbeb", display:"flex", flexDirection:"column", gap:8 }}>
+              {(match.scorers||[]).length > 0 && (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                  {(match.scorers||[]).map((s,si)=>(
+                    <div key={si} style={{ display:"flex", alignItems:"center", gap:4, background:"#fff", border:"1px solid #fcd34d", borderRadius:6, padding:"3px 8px", fontSize:11 }}>
+                      <span style={{ fontWeight:600 }}>{s.name}</span>
+                      <span style={{ color:"#94a3b8" }}>({s.side==="home"?home:away})</span>
+                      <span style={{ color:"#f59e0b", fontWeight:700 }}>×{s.goals}</span>
+                      <button onClick={()=>removeScorer(si)} style={{ background:"none", border:"none", color:"#ef4444", cursor:"pointer", fontSize:12, lineHeight:1, padding:"0 2px" }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
+                <select value={newScorer.side} onChange={e=>setNewScorer(p=>({...p,side:e.target.value,name:""}))}
+                  style={{ border:"1px solid #e2e8f0", borderRadius:5, padding:"4px 6px", fontSize:11 }}>
+                  <option value="home">{home}</option>
+                  <option value="away">{away}</option>
+                </select>
+                {(roster?.[newScorer.side==="home"?home:away]?.players||[]).length>0 ? (
+                  <select value={newScorer.name} onChange={e=>setNewScorer(p=>({...p,name:e.target.value}))}
+                    style={{ border:"1px solid #e2e8f0", borderRadius:5, padding:"4px 8px", fontSize:11, minWidth:130 }}>
+                    <option value="">— Pilih pemain —</option>
+                    {[...(roster?.[newScorer.side==="home"?home:away]?.players||[])].sort((a,b)=>(parseInt(a.number)||99)-(parseInt(b.number)||99)).map((p,pi)=>(
+                      <option key={pi} value={p.name}>{p.number?`#${p.number} `:""}{p.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input placeholder="Nama pemain" value={newScorer.name} onChange={e=>setNewScorer(p=>({...p,name:e.target.value}))}
+                    onKeyDown={e=>e.key==="Enter"&&addScorer()}
+                    style={{ border:"1px solid #e2e8f0", borderRadius:5, padding:"4px 8px", fontSize:11, width:130 }} />
+                )}
+                <input type="number" min="1" value={newScorer.goals} onChange={e=>setNewScorer(p=>({...p,goals:e.target.value}))}
+                  style={{ width:40, border:"1px solid #e2e8f0", borderRadius:5, padding:"4px", fontSize:11, textAlign:"center" }} />
+                <button onClick={addScorer}
+                  style={{ background:"#f59e0b", color:"#fff", border:"none", borderRadius:5, padding:"4px 10px", fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Tambah</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -520,6 +578,7 @@ function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick,
             match={catData.final}
             isAdmin={isAdmin}
             onUpdate={updFinal}
+            roster={catData.roster||{}}
           />
           {getKnockoutWinner(finalist1, finalist2, catData.final) && (
             <div style={{ background:`linear-gradient(135deg,#5b21b6,${KEC_COLOR})`, borderRadius:16, padding:"28px 20px", textAlign:"center", color:"#fff", boxShadow:`0 6px 24px ${KEC_COLOR}55` }}>
