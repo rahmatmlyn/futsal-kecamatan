@@ -75,8 +75,8 @@ const initKecamatan = (() => {
   const mkFinal = () => ({ homeScore:"", awayScore:"", wo:"none", scorers:[], home:"", away:"" });
   return {
     teams: t,
-    U16: { matches: generateKecMatches(t,"U16"), final: mkFinal() },
-    U13: { matches: generateKecMatches(t,"U13"), final: mkFinal() },
+    U16: { matches: generateKecMatches(t,"U16"), final: mkFinal(), roster: {} },
+    U13: { matches: generateKecMatches(t,"U13"), final: mkFinal(), roster: {} },
   };
 })();
 
