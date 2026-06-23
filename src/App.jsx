@@ -35,32 +35,29 @@ function generateKecMatches(teams, cat, rotate = 0) {
     rot = [rot[0], rot[slots - 1], ...rot.slice(1, slots - 1)];
   }
 
-  // Greedy scheduling to avoid back-to-back team play
-  const scheduled = [];
-  const used = new Set(ordered.map(p => p.toString()));
-  let lastTeams = new Set();
-
-  while (used.size > 0) {
-    let best = -1;
-    let bestScore = Infinity;
-
-    for (let i = 0; i < ordered.length; i++) {
-      if (!used.has(ordered[i].toString())) continue;
-      const [a, b] = ordered[i];
-      // Score: 0 if no team overlap, 1 if one team overlaps, 2 if both
-      const score = (lastTeams.has(a) ? 1 : 0) + (lastTeams.has(b) ? 1 : 0);
-      if (score < bestScore) {
-        best = i;
-        bestScore = score;
+  // Urutkan agar tidak ada tim main dua kali berturut-turut (cari solusi 0 bila ada)
+  const nOrd = ordered.length;
+  const usedI = new Array(nOrd).fill(false);
+  const overlap = (p, q) => p && (q[0] === p[0] || q[0] === p[1] || q[1] === p[0] || q[1] === p[1]);
+  let bestSeq = null, bestB2b = Infinity, seq = [];
+  const search = (prev, b2b) => {
+    if (b2b >= bestB2b) return;
+    if (seq.length === nOrd) { bestB2b = b2b; bestSeq = seq.slice(); return; }
+    // coba dulu yang tidak overlap, lalu yang overlap (agar 0 ditemukan lebih awal)
+    for (const wantOverlap of [false, true]) {
+      for (let i = 0; i < nOrd; i++) {
+        if (usedI[i]) continue;
+        const ov = overlap(prev, ordered[i]);
+        if (!!ov !== wantOverlap) continue;
+        usedI[i] = true; seq.push(ordered[i]);
+        search(ordered[i], b2b + (ov ? 1 : 0));
+        seq.pop(); usedI[i] = false;
+        if (bestB2b === 0) return;
       }
     }
-
-    if (best === -1) break;
-    const [a, b] = ordered[best];
-    scheduled.push([a, b]);
-    used.delete(ordered[best].toString());
-    lastTeams = new Set([a, b]);
-  }
+  };
+  search(null, 0);
+  const scheduled = bestSeq || ordered;
 
   return scheduled.map(([a, b], k) => ({
     id: `kec-${cat}-${a}-${b}`, home: teams[a], away: teams[b],
@@ -607,6 +604,84 @@ function LoginScreen({ onLogin, onBack }) {
   );
 }
 
+// ─── SCORER EDITOR (untuk kartu jadwal) ──────────────────────────
+function ScheduleScorers({ match, home, away, roster, isAdmin, onUpdate }) {
+  const [open, setOpen] = useState(false);
+  const [ns, setNs] = useState({ name:"", side:"home", goals:1 });
+  const scorers = match.scorers || [];
+  const total = scorers.reduce((s,c)=>s+(parseInt(c.goals)||0),0);
+  const add = () => {
+    if (!ns.name.trim()) return;
+    onUpdate({ ...match, scorers:[...scorers, { name:ns.name.trim(), side:ns.side, goals:parseInt(ns.goals)||1 }] });
+    setNs({ name:"", side:"home", goals:1 });
+  };
+  const remove = (i) => onUpdate({ ...match, scorers: scorers.filter((_,idx)=>idx!==i) });
+  const teamPlayers = roster?.[ns.side==="home"?home:away]?.players || [];
+
+  // Publik: tampilkan ringkas bila ada gol
+  if (!isAdmin) {
+    if (scorers.length === 0) return null;
+    return (
+      <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #f1f5f9", display:"flex", flexWrap:"wrap", gap:5 }}>
+        {scorers.map((s,i)=>(
+          <span key={i} style={{ fontSize:11, background:"#fffbeb", border:"1px solid #fcd34d", borderRadius:6, padding:"2px 8px", color:"#92400e" }}>
+            ⚽ {s.name} <b>({s.side==="home"?home:away})</b> ×{s.goals}
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop:8, borderTop:"1px solid #f1f5f9" }}>
+      <button onClick={()=>setOpen(!open)}
+        style={{ width:"100%", background: open?"#fffbeb":"transparent", border:"none", padding:"6px 0", fontSize:11, fontWeight:700, color: total>0?"#d97706":"#94a3b8", cursor:"pointer", textAlign:"left" }}>
+        {total>0 ? `⚽ ${total} Gol — ${open?"Tutup":"Lihat/Edit"}` : "⚽ Tambah Pencetak Gol"}
+      </button>
+      {open && (
+        <div style={{ padding:"8px 0 4px", display:"flex", flexDirection:"column", gap:8 }}>
+          {scorers.length>0 && (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+              {scorers.map((s,i)=>(
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:4, background:"#fff", border:"1px solid #fcd34d", borderRadius:6, padding:"3px 8px", fontSize:11 }}>
+                  <span style={{ fontWeight:600 }}>{s.name}</span>
+                  <span style={{ color:"#94a3b8" }}>({s.side==="home"?home:away})</span>
+                  <span style={{ color:"#f59e0b", fontWeight:700 }}>×{s.goals}</span>
+                  <button onClick={()=>remove(i)} style={{ background:"none", border:"none", color:"#ef4444", cursor:"pointer", fontSize:12, lineHeight:1, padding:"0 2px" }}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display:"flex", gap:5, flexWrap:"wrap", alignItems:"center" }}>
+            <select value={ns.side} onChange={e=>setNs(p=>({...p,side:e.target.value,name:""}))}
+              style={{ border:"1px solid #e2e8f0", borderRadius:5, padding:"4px 6px", fontSize:11 }}>
+              <option value="home">{home}</option>
+              <option value="away">{away}</option>
+            </select>
+            {teamPlayers.length>0 ? (
+              <select value={ns.name} onChange={e=>setNs(p=>({...p,name:e.target.value}))}
+                style={{ border:"1px solid #e2e8f0", borderRadius:5, padding:"4px 8px", fontSize:11, minWidth:130 }}>
+                <option value="">— Pilih pemain —</option>
+                {[...teamPlayers].sort((a,b)=>(parseInt(a.number)||99)-(parseInt(b.number)||99)).map((p,pi)=>(
+                  <option key={pi} value={p.name}>{p.number?`#${p.number} `:""}{p.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input placeholder="Nama pemain" value={ns.name} onChange={e=>setNs(p=>({...p,name:e.target.value}))}
+                onKeyDown={e=>e.key==="Enter"&&add()}
+                style={{ border:"1px solid #e2e8f0", borderRadius:5, padding:"4px 8px", fontSize:11, width:130 }} />
+            )}
+            <input type="number" min="1" value={ns.goals} onChange={e=>setNs(p=>({...p,goals:e.target.value}))}
+              style={{ width:40, border:"1px solid #e2e8f0", borderRadius:5, padding:"4px", fontSize:11, textAlign:"center" }} />
+            <button onClick={add}
+              style={{ background:"#f59e0b", color:"#fff", border:"none", borderRadius:5, padding:"4px 10px", fontSize:11, fontWeight:700, cursor:"pointer" }}>+ Tambah</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── HALAMAN UTAMA ───────────────────────────────────────────────
 function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick, onLogout }) {
   const [cat, setCat] = useState("U16");
@@ -818,6 +893,9 @@ function KecamatanPage({ kecamatan, setKecamatan, isAdmin, onSave, onAdminClick,
                         style={{ border:"1px solid #e2e8f0", borderRadius:4, padding:"2px 5px", fontSize:11 }} />
                     </div>
                   )}
+                  <ScheduleScorers match={m} home={m.home} away={m.away}
+                    roster={catData.roster||{}} isAdmin={isAdmin}
+                    onUpdate={updated=>updMatch(m.id,"scorers",updated.scorers)} />
                 </div>
               </div>
             );
