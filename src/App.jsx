@@ -8,18 +8,66 @@ const KEC_COLOR = "#8b5cf6";
 const KEC_BG    = "#f5f3ff";
 const KEC_TEAMS_DEFAULT = ["Kalisari","Cijantung","Kp. Gedong","Baru","Pekayon"];
 
-function generateKecMatches(teams, cat) {
-  const matches = [];
-  let no = 1;
-  for (let i = 0; i < teams.length; i++)
-    for (let j = i + 1; j < teams.length; j++)
-      matches.push({
-        id:`kec-${cat}-${i}-${j}`, home:teams[i], away:teams[j],
-        homeScore:"", awayScore:"", wo:"none",
-        yellowHome:0, yellowAway:0, redHome:0, redAway:0,
-        scorers:[], date:"", time:"", matchNo:no++,
-      });
-  return matches;
+function generateKecMatches(teams, cat, rotate = 0) {
+  const n = teams.length;
+  // indeks tim, dengan "bye" (-1) bila ganjil
+  const idx = teams.map((_, i) => i);
+  if (n % 2 === 1) idx.push(-1);
+  const slots = idx.length;
+  const half = slots / 2;
+  // rotasi awal untuk variasi urutan (acak ulang)
+  const arr = idx.slice();
+  const fixed = arr[0];
+  let rest = arr.slice(1);
+  for (let r = 0; r < (rotate % rest.length + rest.length) % rest.length; r++)
+    rest.unshift(rest.pop());
+
+  const ordered = [];
+  let rot = [fixed, ...rest];
+  for (let round = 0; round < slots - 1; round++) {
+    for (let i = 0; i < half; i++) {
+      const a = rot[i], b = rot[slots - 1 - i];
+      if (a === -1 || b === -1) continue;
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      ordered.push([lo, hi]);
+    }
+    // putar semua kecuali elemen pertama
+    rot = [rot[0], rot[slots - 1], ...rot.slice(1, slots - 1)];
+  }
+
+  // Greedy scheduling to avoid back-to-back team play
+  const scheduled = [];
+  const used = new Set(ordered.map(p => p.toString()));
+  let lastTeams = new Set();
+
+  while (used.size > 0) {
+    let best = -1;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < ordered.length; i++) {
+      if (!used.has(ordered[i].toString())) continue;
+      const [a, b] = ordered[i];
+      // Score: 0 if no team overlap, 1 if one team overlaps, 2 if both
+      const score = (lastTeams.has(a) ? 1 : 0) + (lastTeams.has(b) ? 1 : 0);
+      if (score < bestScore) {
+        best = i;
+        bestScore = score;
+      }
+    }
+
+    if (best === -1) break;
+    const [a, b] = ordered[best];
+    scheduled.push([a, b]);
+    used.delete(ordered[best].toString());
+    lastTeams = new Set([a, b]);
+  }
+
+  return scheduled.map(([a, b], k) => ({
+    id: `kec-${cat}-${a}-${b}`, home: teams[a], away: teams[b],
+    homeScore: "", awayScore: "", wo: "none",
+    yellowHome: 0, yellowAway: 0, redHome: 0, redAway: 0,
+    scorers: [], date: "", time: "", matchNo: k + 1,
+  }));
 }
 
 const initKecamatan = (() => {
