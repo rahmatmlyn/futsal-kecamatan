@@ -322,6 +322,259 @@ function TopScorers({ matches, final }) {
   );
 }
 
+// ─── ROSTER VIEW (publik) ────────────────────────────────────────
+function RosterView({ teams, roster }) {
+  const [selected, setSelected] = useState(teams[0] || "");
+  const data = roster[selected] || { players: [], officials: [] };
+  const posColor = { GK:"#7c3aed", FP:"#2563eb", CF:"#10b981" };
+  const posLabel = { GK:"Kiper", FP:"Pemain Lapangan", CF:"Pivot" };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:"14px 16px", boxShadow:"0 1px 6px #0001" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"#64748b", marginBottom:8 }}>Pilih Tim:</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {teams.map(t => (
+            <button key={t} onClick={()=>setSelected(t)}
+              style={{ padding:"6px 14px", borderRadius:8, border:`2px solid ${selected===t?KEC_COLOR:"#e2e8f0"}`, background:selected===t?KEC_COLOR:"#fff", color:selected===t?"#fff":"#1e293b", fontWeight:600, fontSize:12, cursor:"pointer" }}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ background:"#fff", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px #0001" }}>
+        <div style={{ background:"#5b21b6", color:"#fff", padding:"12px 20px", fontWeight:700, fontSize:14 }}>👥 {selected}</div>
+        <div style={{ padding:"12px 16px 0" }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#64748b", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Official</div>
+          {data.officials.length === 0
+            ? <div style={{ fontSize:12, color:"#cbd5e1", paddingBottom:12 }}>Belum ada data official</div>
+            : <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+                {data.officials.map((o,i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:8, background:"#f1f5f9", border:"1px solid #e2e8f0" }}>
+                    <div style={{ width:28, height:28, borderRadius:"50%", background:"#5b21b6", color:"#fff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800 }}>{o.name.charAt(0)}</div>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:12, color:"#1e293b" }}>{o.name}</div>
+                      <div style={{ fontSize:10, color:"#64748b" }}>{o.role}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>}
+        </div>
+        <div style={{ padding:"0 16px 16px" }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#64748b", marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>Pemain</div>
+          {data.players.length === 0
+            ? <div style={{ fontSize:12, color:"#cbd5e1" }}>Belum ada data pemain</div>
+            : <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ background:"#f8fafc" }}>
+                    {["No","Nama","Posisi"].map((h,i)=>(
+                      <th key={i} style={{ padding:"7px 8px", textAlign:i===0?"center":"left", color:"#64748b", fontWeight:600 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...data.players].sort((a,b)=>(parseInt(a.number)||99)-(parseInt(b.number)||99)).map((p,i)=>(
+                    <tr key={i} style={{ borderBottom:"1px solid #f1f5f9" }}>
+                      <td style={{ padding:"8px", textAlign:"center", fontWeight:700, color:KEC_COLOR, width:36 }}>{p.number||"-"}</td>
+                      <td style={{ padding:"8px", fontWeight:600, color:"#1e293b" }}>{p.name}</td>
+                      <td style={{ padding:"8px" }}>
+                        <span style={{ fontSize:10, background:(posColor[p.pos]||"#64748b")+"22", color:posColor[p.pos]||"#64748b", borderRadius:4, padding:"2px 6px", fontWeight:700 }}>
+                          {posLabel[p.pos]||p.pos||"-"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROSTER ADMIN ────────────────────────────────────────────────
+function RosterAdmin({ teams, roster, setRoster, cat }) {
+  const [selected, setSelected] = useState(teams[0] || "");
+  const [newPlayer, setNewPlayer] = useState({ name:"", number:"", pos:"FP" });
+  const [newOfficial, setNewOfficial] = useState({ name:"", role:"" });
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [editingOfficial, setEditingOfficial] = useState(null);
+
+  const data = roster[selected] || { players: [], officials: [] };
+  const update = (patch) => setRoster(prev => ({ ...prev, [selected]: { ...(prev[selected]||{players:[],officials:[]}), ...patch } }));
+
+  const addPlayer = () => {
+    if (!newPlayer.name.trim()) return;
+    const nextNo = newPlayer.number || (Math.max(0, ...data.players.map(p => parseInt(p.number)||0)) + 1).toString();
+    update({ players: [...data.players, { ...newPlayer, number: nextNo, name: newPlayer.name.trim() }] });
+    setNewPlayer({ name:"", number:"", pos:"FP" });
+  };
+  const removePlayer = (i) => { update({ players: data.players.filter((_,idx)=>idx!==i) }); setEditingPlayer(null); };
+  const updatePlayer = (i, field, val) => update({ players: data.players.map((p,idx)=>idx===i?{...p,[field]:val}:p) });
+
+  const addOfficial = () => {
+    if (!newOfficial.name.trim()) return;
+    update({ officials: [...data.officials, { ...newOfficial, name: newOfficial.name.trim() }] });
+    setNewOfficial({ name:"", role:"" });
+  };
+  const removeOfficial = (i) => { update({ officials: data.officials.filter((_,idx)=>idx!==i) }); setEditingOfficial(null); };
+  const updateOfficial = (i, field, val) => update({ officials: data.officials.map((o,idx)=>idx===i?{...o,[field]:val}:o) });
+
+  const sortedPlayers = [...data.players].sort((a,b)=>(parseInt(a.number)||99)-(parseInt(b.number)||99));
+
+  const exportExcel = () => {
+    const rows = [
+      ["No Urut","No Punggung","Nama Pemain","Posisi","Tim","Kategori"],
+      ...sortedPlayers.map((p,i)=>[i+1, p.number||"-", p.name, p.pos==="GK"?"Kiper":p.pos==="CF"?"Pivot":"Pemain", selected, cat]),
+    ];
+    const csv = "﻿" + rows.map(r=>r.map(v=>`"${v}"`).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"}));
+    a.download = `pemain-${cat}-${selected.replace(/\s+/g,"-")}.csv`;
+    a.click();
+  };
+
+  const exportPDF = () => {
+    const posLabel = {GK:"Kiper",FP:"Pemain",CF:"Pivot"};
+    const numRows = Math.max(12, sortedPlayers.length);
+    const playerRows = Array.from({length: numRows}, (_,i) => {
+      const p = sortedPlayers[i];
+      return `<tr><td style="text-align:center;font-size:13px">${i+1}</td><td style="text-align:center">${p?.number||""}</td><td style="padding:5px 10px">${p?.name||""}</td><td style="text-align:center">${p?(posLabel[p.pos]||p.pos||""):""}</td><td></td><td></td><td></td></tr>`;
+    }).join("");
+    const off1 = data.officials[0], off2 = data.officials[1];
+    const totalRows = numRows + 4;
+    const w = window.open("","_blank");
+    w.document.write(`<!DOCTYPE html><html><head><title>Daftar Susunan Pemain - ${selected} ${cat}</title>
+      <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:20px}.title{text-align:center;font-weight:bold;font-size:13px;margin-bottom:20px;line-height:2}table{width:100%;border-collapse:collapse}td,th{border:1px solid #000;padding:5px 6px;vertical-align:middle;font-size:11px}@media print{@page{size:A4 landscape;margin:1cm}}</style>
+      </head><body>
+      <div class="title">DAFTAR SUSUNAN PEMAIN<br>TURNAMEN FUTSAL KECAMATAN PASAR REBO — ${cat}<br>TIM ${selected}</div>
+      <table><tbody>
+        <tr>
+          <td rowspan="${totalRows}" style="width:110px;font-weight:bold;font-size:11px;vertical-align:top;padding:8px">
+            <table style="border:none;width:100%;height:100%"><tr><td style="border:none;padding:0;vertical-align:top">TIM : ${selected}</td></tr><tr><td style="border:none;padding:0;vertical-align:bottom;padding-top:${numRows*14}px">OFFICIAL/COACH :</td></tr></table>
+          </td>
+          <th rowspan="2" style="width:46px;text-align:center">NO</th>
+          <th rowspan="2" style="width:100px;text-align:center">NO PUNGGUNG</th>
+          <th rowspan="2" style="text-align:center">NAMA LENGKAP PEMAIN</th>
+          <th rowspan="2" style="width:80px;text-align:center">POSISI</th>
+          <th colspan="3" style="text-align:center">STATUS PEMAIN</th>
+        </tr>
+        <tr><th style="width:70px;text-align:center">MAIN</th><th style="width:80px;text-align:center">CADANGAN</th><th style="width:60px;text-align:center">JOKER</th></tr>
+        ${playerRows}
+        <tr><td colspan="3" style="text-align:center;font-weight:bold;font-size:10px;letter-spacing:1px;padding:6px">OFFICIAL 1</td><td colspan="4" style="text-align:center;font-weight:bold;font-size:10px;letter-spacing:1px;padding:6px">OFFICIAL 2</td></tr>
+        <tr><td colspan="3" style="height:60px;text-align:center;vertical-align:bottom;padding-bottom:6px;font-size:11px">${off1?.name||""}</td><td colspan="4" style="height:60px;text-align:center;vertical-align:bottom;padding-bottom:6px;font-size:11px">${off2?.name||""}</td></tr>
+      </tbody></table>
+      <script>window.onload=()=>window.print()</script></body></html>`);
+    w.document.close();
+  };
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ background:"#fff", borderRadius:12, padding:"14px 16px", boxShadow:"0 1px 6px #0001" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"#64748b", marginBottom:8 }}>Pilih Tim ({cat}):</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+          {teams.map(t => (
+            <button key={t} onClick={()=>{ setSelected(t); setEditingPlayer(null); setEditingOfficial(null); }}
+              style={{ padding:"6px 14px", borderRadius:8, border:`2px solid ${selected===t?KEC_COLOR:"#e2e8f0"}`, background:selected===t?KEC_COLOR:"#fff", color:selected===t?"#fff":"#1e293b", fontWeight:600, fontSize:12, cursor:"pointer" }}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background:"#fff", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px #0001" }}>
+        <div style={{ background:"#5b21b6", color:"#fff", padding:"10px 16px", fontWeight:700, fontSize:13 }}>👔 Official — {selected}</div>
+        <div style={{ padding:12, display:"flex", flexDirection:"column", gap:8 }}>
+          {data.officials.map((o,i) => (
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 10px", borderRadius:8, background: editingOfficial===i?"#f5f3ff":"#f8fafc", border:`1px solid ${editingOfficial===i?"#c4b5fd":"#e2e8f0"}` }}>
+              {editingOfficial===i ? (
+                <>
+                  <input value={o.name} onChange={e=>updateOfficial(i,"name",e.target.value)} style={{ flex:2, border:"1px solid #c4b5fd", borderRadius:5, padding:"3px 8px", fontSize:12, fontWeight:600 }} />
+                  <input value={o.role} onChange={e=>updateOfficial(i,"role",e.target.value)} style={{ flex:2, border:"1px solid #c4b5fd", borderRadius:5, padding:"3px 8px", fontSize:12 }} />
+                  <button onClick={()=>setEditingOfficial(null)} style={{ background:"#dcfce7", border:"none", color:"#16a34a", borderRadius:5, padding:"2px 8px", cursor:"pointer", fontSize:11, fontWeight:700 }}>✓</button>
+                </>
+              ) : (
+                <>
+                  <span style={{ flex:1, fontWeight:600, fontSize:12 }}>{o.name}</span>
+                  <span style={{ fontSize:11, color:"#64748b" }}>{o.role}</span>
+                  <button onClick={()=>setEditingOfficial(i)} style={{ background:"#f5f3ff", border:"none", color:KEC_COLOR, borderRadius:5, padding:"2px 8px", cursor:"pointer", fontSize:11, fontWeight:700 }}>✏️</button>
+                  <button onClick={()=>removeOfficial(i)} style={{ background:"#fee2e2", border:"none", color:"#ef4444", borderRadius:5, padding:"2px 8px", cursor:"pointer", fontSize:11, fontWeight:700 }}>×</button>
+                </>
+              )}
+            </div>
+          ))}
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+            <input placeholder="Nama official" value={newOfficial.name} onChange={e=>setNewOfficial(p=>({...p,name:e.target.value}))} style={{ flex:2, border:"1px solid #e2e8f0", borderRadius:6, padding:"6px 10px", fontSize:12, minWidth:120 }} />
+            <input placeholder="Jabatan (misal: Pelatih)" value={newOfficial.role} onChange={e=>setNewOfficial(p=>({...p,role:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addOfficial()} style={{ flex:2, border:"1px solid #e2e8f0", borderRadius:6, padding:"6px 10px", fontSize:12, minWidth:120 }} />
+            <button onClick={addOfficial} style={{ background:"#5b21b6", color:"#fff", border:"none", borderRadius:6, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Tambah</button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background:"#fff", borderRadius:12, overflow:"hidden", boxShadow:"0 1px 6px #0001" }}>
+        <div style={{ background:KEC_COLOR, color:"#fff", padding:"10px 16px", fontWeight:700, fontSize:13 }}>⚽ Pemain — {selected}</div>
+        <div style={{ padding:12, display:"flex", flexDirection:"column", gap:6 }}>
+          {data.players.length > 0 && (
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, marginBottom:6 }}>
+              <thead><tr style={{ background:"#f8fafc" }}>
+                {["#","No","Nama","Posisi",""].map((h,i)=><th key={i} style={{ padding:"6px 8px", textAlign:i<2?"center":"left", color:"#64748b", fontWeight:600 }}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {sortedPlayers.map((p, urutan) => {
+                  const realIdx = data.players.indexOf(p);
+                  const isEditing = editingPlayer === realIdx;
+                  return (
+                    <tr key={realIdx} style={{ borderBottom:"1px solid #f1f5f9", background: isEditing?"#f5f3ff":"transparent" }}>
+                      <td style={{ padding:"4px 6px", textAlign:"center", width:28, color:"#94a3b8", fontSize:11, fontWeight:600 }}>{urutan+1}</td>
+                      <td style={{ padding:"4px 6px", textAlign:"center", width:50 }}>
+                        {isEditing ? (
+                          <input type="number" value={p.number} onChange={e=>updatePlayer(realIdx,"number",e.target.value)} style={{ width:40, textAlign:"center", border:"1px solid #c4b5fd", borderRadius:4, padding:"2px", fontSize:12, fontWeight:700, color:KEC_COLOR }} />
+                        ) : (<span style={{ fontWeight:700, color:KEC_COLOR }}>{p.number||"-"}</span>)}
+                      </td>
+                      <td style={{ padding:"6px 8px", fontWeight:600 }}>{p.name}</td>
+                      <td style={{ padding:"4px 6px" }}>
+                        {isEditing ? (
+                          <select value={p.pos} onChange={e=>updatePlayer(realIdx,"pos",e.target.value)} style={{ border:"1px solid #c4b5fd", borderRadius:4, padding:"3px 6px", fontSize:11 }}>
+                            <option value="GK">Kiper (GK)</option><option value="FP">Pemain (FP)</option><option value="CF">Pivot (CF)</option>
+                          </select>
+                        ) : (<span style={{ fontSize:11, color:"#64748b" }}>{p.pos||"-"}</span>)}
+                      </td>
+                      <td style={{ padding:"4px 6px", whiteSpace:"nowrap" }}>
+                        {isEditing ? (
+                          <button onClick={()=>setEditingPlayer(null)} style={{ background:"#dcfce7", border:"none", color:"#16a34a", borderRadius:5, padding:"2px 8px", cursor:"pointer", fontSize:11, fontWeight:700 }}>✓ Selesai</button>
+                        ) : (
+                          <div style={{ display:"flex", gap:4 }}>
+                            <button onClick={()=>setEditingPlayer(realIdx)} style={{ background:"#f5f3ff", border:"none", color:KEC_COLOR, borderRadius:5, padding:"2px 7px", cursor:"pointer", fontSize:11, fontWeight:700 }}>✏️</button>
+                            <button onClick={()=>removePlayer(realIdx)} style={{ background:"#fee2e2", border:"none", color:"#ef4444", borderRadius:5, padding:"2px 7px", cursor:"pointer", fontSize:11, fontWeight:700 }}>×</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+            <input placeholder="Nama pemain" value={newPlayer.name} onChange={e=>setNewPlayer(p=>({...p,name:e.target.value}))} style={{ flex:3, border:"1px solid #e2e8f0", borderRadius:6, padding:"6px 10px", fontSize:12, minWidth:120 }} />
+            <input type="number" placeholder="No" value={newPlayer.number} onChange={e=>setNewPlayer(p=>({...p,number:e.target.value}))} style={{ width:56, border:"1px solid #e2e8f0", borderRadius:6, padding:"6px 8px", fontSize:12, textAlign:"center" }} />
+            <select value={newPlayer.pos} onChange={e=>setNewPlayer(p=>({...p,pos:e.target.value}))} style={{ border:"1px solid #e2e8f0", borderRadius:6, padding:"6px 8px", fontSize:12 }}>
+              <option value="GK">Kiper (GK)</option><option value="FP">Pemain (FP)</option><option value="CF">Pivot (CF)</option>
+            </select>
+            <button onClick={addPlayer} style={{ background:KEC_COLOR, color:"#fff", border:"none", borderRadius:6, padding:"6px 14px", fontSize:12, fontWeight:700, cursor:"pointer" }}>+ Tambah</button>
+          </div>
+          {data.players.length > 0 && (
+            <div style={{ display:"flex", gap:8, marginTop:8, paddingTop:8, borderTop:"1px solid #f1f5f9" }}>
+              <button onClick={exportExcel} style={{ flex:1, background:"#f0fdf4", border:"1px solid #86efac", color:"#16a34a", borderRadius:6, padding:"7px", fontSize:12, fontWeight:700, cursor:"pointer" }}>📥 Download Excel</button>
+              <button onClick={exportPDF} style={{ flex:1, background:"#f5f3ff", border:"1px solid #c4b5fd", color:KEC_COLOR, borderRadius:6, padding:"7px", fontSize:12, fontWeight:700, cursor:"pointer" }}>🖨️ Download PDF</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── LOGIN ───────────────────────────────────────────────────────
 function LoginScreen({ onLogin, onBack }) {
   const [pw, setPw] = useState("");
